@@ -1,0 +1,633 @@
+<title>Container Fit Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: inputs rail on the left, 3D load view and comparison table on the right; stacks on phones. */
+:root {
+  --bg: #EDEFF2;
+  --panel: #FFFFFF;
+  --panel-2: #F5F7F9;
+  --fg: #14202B;
+  --muted: #5B6A78;
+  --line: #D3D9DF;
+  --accent: #C8451B;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #F7E3DB;
+  --scene-bg: #E1E6EA;
+  --scene-line: #3B4A57;
+  --scene-floor: #CDD4DA;
+  --ok: #1E7F52;
+  --warn: #A8680F;
+  --b1: #E0773B; --b2: #3F82B5; --b3: #4F9F7B; --b4: #B6563F; --b5: #8E6BB0; --b6: #C9A23A;
+  --f-display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D141A; --panel: #151E26; --panel-2: #1B2630; --fg: #E6ECF1; --muted: #8E9DAB; --line: #28343F;
+    --accent: #F0693A; --accent-ink: #1A0E08; --accent-soft: #3A2318;
+    --scene-bg: #0A1015; --scene-line: #9FB0BF; --scene-floor: #18232C;
+    --ok: #4CC38A; --warn: #E6B450;
+    --b1: #F08A50; --b2: #5AA0D6; --b3: #63BF98; --b4: #D4735A; --b5: #A98BCB; --b6: #DDB84E;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D141A; --panel: #151E26; --panel-2: #1B2630; --fg: #E6ECF1; --muted: #8E9DAB; --line: #28343F;
+  --accent: #F0693A; --accent-ink: #1A0E08; --accent-soft: #3A2318;
+  --scene-bg: #0A1015; --scene-line: #9FB0BF; --scene-floor: #18232C;
+  --ok: #4CC38A; --warn: #E6B450;
+  --b1: #F08A50; --b2: #5AA0D6; --b3: #63BF98; --b4: #D4735A; --b5: #A98BCB; --b6: #DDB84E;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 14px; line-height: 1.45;
+  padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 {
+  font-family: var(--f-display); font-weight: 700; font-size: 34px; letter-spacing: .02em;
+  text-transform: uppercase; margin: 0; line-height: 1; text-wrap: balance;
+}
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); font-size: 13px; }
+
+.grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.rail { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.lbl {
+  font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted);
+}
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; min-width: 0; }
+input, select {
+  font: inherit; font-family: var(--f-mono); font-size: 14px; color: var(--fg);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
+  padding: 8px 9px; width: 100%; min-width: 0;
+}
+input[type="text"] { font-family: var(--f-body); }
+select { font-family: var(--f-body); }
+input:focus-visible, select:focus-visible, button:focus-visible, .seg label:has(input:focus-visible) {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+input[type="range"] { padding: 0; accent-color: var(--accent); background: transparent; border: 0; }
+
+.dims { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 76px; gap: 8px; align-items: end; }
+.dims .field span.t { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font: inherit; font-size: 12px; color: var(--fg); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); }
+
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg label { cursor: pointer; text-align: center; padding: 8px 6px; font-size: 13px; background: var(--panel-2); }
+.seg label + label { border-left: 1px solid var(--line); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; width: 0; }
+.seg label:has(input:checked) { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.hint { font-size: 12px; color: var(--muted); }
+
+.main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.tabs { display: flex; gap: 0; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.tab {
+  font-family: var(--f-display); font-weight: 600; font-size: 17px; letter-spacing: .04em;
+  background: none; color: var(--muted); border: 0; border-bottom: 3px solid transparent;
+  padding: 10px 14px 8px; cursor: pointer; white-space: nowrap;
+}
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+
+.viewer-head { display: flex; flex-wrap: wrap; gap: 12px 28px; padding: 14px 16px 12px; align-items: flex-end; }
+.big { font-family: var(--f-display); font-weight: 700; font-size: 52px; line-height: .95; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.big small { font-size: 22px; font-weight: 600; color: var(--muted); letter-spacing: .03em; margin-left: 6px; text-transform: uppercase; }
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat .k { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.stat .v { font-family: var(--f-mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+.tag { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; border-radius: 3px; padding: 2px 6px; background: var(--accent-soft); color: var(--accent); }
+
+.stage { position: relative; background: var(--scene-bg); border-top: 1px solid var(--line); height: 440px; touch-action: none; cursor: grab; }
+.stage:active { cursor: grabbing; }
+.stage canvas { display: block; width: 100%; height: 100%; }
+@media (max-width: 600px) { .stage { height: 320px; } .big { font-size: 42px; } }
+.legend { position: absolute; left: 12px; bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--muted); max-width: calc(100% - 24px); }
+.legend i { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 2px; }
+.door { position: absolute; right: 12px; top: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.stage-ctl { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.stage-ctl input { flex: 1; }
+.stage-ctl output { font-family: var(--f-mono); color: var(--fg); min-width: 4ch; text-align: right; }
+.reset { font: inherit; font-size: 12px; background: none; border: 1px solid var(--line); color: var(--fg); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th {
+  text-align: left; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; vertical-align: middle; }
+td.m { font-family: var(--f-mono); font-size: 12.5px; white-space: nowrap; }
+tr.r { cursor: pointer; }
+tr.r:hover td { background: var(--panel-2); }
+tr.r[aria-selected="true"] td { background: var(--accent-soft); }
+tr:last-child td { border-bottom: 0; }
+.nm { font-family: var(--f-display); font-weight: 600; font-size: 18px; letter-spacing: .03em; white-space: nowrap; }
+.nm small { display: block; font-family: var(--f-body); font-weight: 400; font-size: 11px; color: var(--muted); letter-spacing: 0; }
+.bar { width: 90px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+.bar b { display: block; height: 100%; background: var(--accent); }
+.lim-w { color: var(--warn); } .lim-v { color: var(--muted); } .lim-n { color: var(--warn); }
+.note { padding: 12px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+.err { color: var(--warn); font-size: 12px; min-height: 16px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Container <span>Fit</span> Calculator</h1>
+    <div class="sub">Estimate how many units load into each standard container, by volume and by weight.</div>
+  </header>
+
+  <div class="grid">
+    <aside class="panel rail" aria-label="Cargo inputs">
+      <div class="field">
+        <span class="lbl">Cargo</span>
+        <div class="row">
+          <input type="text" id="cargoName" value="Sneaker cartons" aria-label="Cargo type">
+          <select id="unitName" aria-label="Unit">
+            <option value="carton">carton</option>
+            <option value="pallet">pallet</option>
+            <option value="crate">crate</option>
+            <option value="box">box</option>
+            <option value="bag">bag</option>
+            <option value="piece">piece</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="chips" aria-label="Presets">
+        <button class="chip" data-p="carton">Carton 60×40×40 cm</button>
+        <button class="chip" data-p="euro">Euro pallet</button>
+        <button class="chip" data-p="us">US pallet</button>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Size of one unit</span>
+        <div class="dims">
+          <div class="field"><span class="t">Length</span><input type="number" id="dl" value="60" min="0" step="any" inputmode="decimal"></div>
+          <div class="field"><span class="t">Width</span><input type="number" id="dw" value="40" min="0" step="any" inputmode="decimal"></div>
+          <div class="field"><span class="t">Height</span><input type="number" id="dh" value="40" min="0" step="any" inputmode="decimal"></div>
+          <select id="du" aria-label="Dimension unit">
+            <option value="1">mm</option><option value="10" selected>cm</option><option value="1000">m</option>
+            <option value="25.4">in</option><option value="304.8">ft</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field"><span class="lbl">Weight each</span>
+          <div class="row">
+            <input type="number" id="wt" value="12" min="0" step="any" inputmode="decimal">
+            <select id="wu" aria-label="Weight unit"><option value="1" selected>kg</option><option value="0.45359237">lb</option></select>
+          </div>
+        </div>
+        <div class="field"><span class="lbl">Quantity</span>
+          <input type="number" id="qty" value="2400" min="1" step="1" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Loading rule</span>
+        <div class="seg" role="radiogroup" aria-label="Loading rule">
+          <label><input type="radio" name="rot" value="up" checked>This side up</label>
+          <label><input type="radio" name="rot" value="any">Any rotation</label>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="lbl">Max stack layers</span>
+        <input type="number" id="layers" value="0" min="0" step="1" inputmode="numeric">
+        <span class="hint">0 means stack to the container roof. Applies to "This side up".</span>
+      </div>
+      <div class="err" id="err" role="status"></div>
+    </aside>
+
+    <div class="main">
+      <section class="panel" aria-label="3D load view">
+        <div class="tabs" role="tablist" id="tabs"></div>
+        <div class="viewer-head" id="head"></div>
+        <div class="stage" id="stage">
+          <canvas id="cv"></canvas>
+          <div class="door">DOOR END &rarr; right</div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="stage-ctl">
+          <label for="load">Loaded</label>
+          <input type="range" id="load" min="0" max="100" value="100">
+          <output id="loadOut">100%</output>
+          <button class="reset" id="resetView">Reset view</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="All container types">
+        <div class="tbl-wrap">
+          <table id="tbl">
+            <thead><tr>
+              <th>Container</th><th>Inside L × W × H</th><th>Payload</th><th>Fits</th><th>Volume used</th><th>Weight used</th><th>Limit</th><th id="needTh">For qty</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="note">Inside sizes and payloads are typical ISO values. Door openings, pallet gaps, dunnage and lashing reduce real capacity, so confirm with your carrier before booking.</div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  // ---------- Container catalogue (inside mm, payload kg) ----------
+  var CONTAINERS = [
+    { id: '20GP', name: "20' GP",    desc: '20 ft general purpose', l: 5898,  w: 2352, h: 2393, pay: 28200 },
+    { id: '40GP', name: "40' GP",    desc: '40 ft general purpose', l: 12032, w: 2352, h: 2393, pay: 26700 },
+    { id: '40HC', name: "40' HC",    desc: '40 ft high cube',       l: 12032, w: 2352, h: 2698, pay: 26500 },
+    { id: '45HC', name: "45' HC",    desc: '45 ft high cube',       l: 13556, w: 2352, h: 2698, pay: 27600 },
+    { id: '20RF', name: "20' Reefer",desc: '20 ft refrigerated',    l: 5444,  w: 2294, h: 2276, pay: 27400 },
+    { id: '40RH', name: "40' Reefer HC", desc: '40 ft refrigerated high cube', l: 11584, w: 2294, h: 2544, pay: 29000 }
+  ];
+  var PRESETS = {
+    carton: { name: 'Sneaker cartons', unit: 'carton', l: 60, w: 40, h: 40, du: 10, wt: 12, wu: 1, qty: 2400, rot: 'up' },
+    euro:   { name: 'Euro pallets', unit: 'pallet', l: 1200, w: 800, h: 1500, du: 1, wt: 400, wu: 1, qty: 60, rot: 'up' },
+    us:     { name: 'US pallets', unit: 'pallet', l: 48, w: 40, h: 60, du: 25.4, wt: 800, wu: 0.45359237, qty: 40, rot: 'up' }
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var selected = '40HC';
+  var results = [];
+  var EPS = 1e-9;
+
+  // ---------- Packing (guillotine layers, exact non-overlapping counts) ----------
+  function orientations(b, upright) {
+    var o = [];
+    if (upright) {
+      o.push([b.l, b.h, b.w]);
+      if (Math.abs(b.l - b.w) > 1e-6) o.push([b.w, b.h, b.l]);
+    } else {
+      var p = [[b.l,b.h,b.w],[b.w,b.h,b.l],[b.l,b.w,b.h],[b.h,b.w,b.l],[b.w,b.l,b.h],[b.h,b.l,b.w]];
+      var seen = {};
+      p.forEach(function (d) { var k = d.join('|'); if (!seen[k]) { seen[k] = 1; o.push(d); } });
+    }
+    return o;
+  }
+  // dims order in each orientation: [alongLength, height, alongWidth]
+  function solve(L, W, H, b, upright, depth) {
+    var best = { n: 0, place: function () {} };
+    var ors = orientations(b, upright);
+    for (var i = 0; i < ors.length; i++) {
+      var dx = ors[i][0], dy = ors[i][1], dz = ors[i][2];
+      var nx = Math.floor(L / dx + EPS), ny = Math.floor(H / dy + EPS), nz = Math.floor(W / dz + EPS);
+      if (nx < 1 || ny < 1 || nz < 1) continue;
+      var n = nx * ny * nz, A = null, B = null, C = null;
+      if (depth < 2) {
+        A = solve(L - nx * dx, W, H, b, upright, depth + 1);
+        B = solve(nx * dx, W - nz * dz, H, b, upright, depth + 1);
+        C = solve(nx * dx, nz * dz, H - ny * dy, b, upright, depth + 1);
+        n += A.n + B.n + C.n;
+      }
+      if (n > best.n) {
+        best = (function (nx, ny, nz, dx, dy, dz, A, B, C, n, ci) {
+          return { n: n, place: function (ox, oy, oz, out) {
+            for (var x = 0; x < nx; x++) for (var y = 0; y < ny; y++) for (var z = 0; z < nz; z++)
+              out.push([ox + x * dx, oy + y * dy, oz + z * dz, dx, dy, dz, ci]);
+            if (A && A.n) A.place(ox + nx * dx, oy, oz, out);
+            if (B && B.n) B.place(ox, oy, oz + nz * dz, out);
+            if (C && C.n) C.place(ox, oy + ny * dy, oz, out);
+          } };
+        })(nx, ny, nz, dx, dy, dz, A, B, C, n, i);
+      }
+    }
+    return best;
+  }
+
+  // ---------- Inputs ----------
+  function readInputs() {
+    var du = parseFloat($('du').value), wu = parseFloat($('wu').value);
+    var b = { l: +$('dl').value * du, w: +$('dw').value * du, h: +$('dh').value * du };
+    return {
+      box: b, du: du, wu: wu,
+      kg: (+$('wt').value) * wu,
+      qty: Math.max(0, Math.floor(+$('qty').value || 0)),
+      upright: document.querySelector('input[name="rot"]:checked').value === 'up',
+      layers: Math.max(0, Math.floor(+$('layers').value || 0)),
+      cargo: $('cargoName').value.trim() || 'Cargo',
+      unit: $('unitName').value
+    };
+  }
+  function plural(unit, n) {
+    if (n === 1) return unit;
+    return unit === 'box' ? 'boxes' : unit + 's';
+  }
+
+  function compute() {
+    var inp = readInputs();
+    var ok = inp.box.l > 0 && inp.box.w > 0 && inp.box.h > 0;
+    $('err').textContent = ok ? '' : 'Enter length, width and height above zero.';
+    results = CONTAINERS.map(function (c) {
+      var r = { c: c, n: 0, byVol: 0, byWt: Infinity, limit: 'size', place: [], vUsed: 0, wUsed: 0, need: 0 };
+      if (!ok) return r;
+      var H = c.h;
+      if (inp.upright && inp.layers > 0) H = Math.min(H, inp.layers * inp.box.h);
+      var s = solve(c.l, c.w, H, inp.box, inp.upright, 0);
+      r.byVol = s.n;
+      r.byWt = inp.kg > 0 ? Math.floor(c.pay / inp.kg + EPS) : Infinity;
+      r.n = Math.min(r.byVol, r.byWt);
+      r.limit = r.byVol === 0 ? 'size' : (r.byWt < r.byVol ? 'weight' : 'volume');
+      var all = [];
+      s.place(0, 0, 0, all);
+      all.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1] || a[2] - b[2]; });
+      r.place = all.slice(0, r.n);
+      r.vUsed = r.n * inp.box.l * inp.box.w * inp.box.h / (c.l * c.w * c.h);
+      r.wUsed = r.n * inp.kg / c.pay;
+      r.need = r.n > 0 ? Math.ceil(inp.qty / r.n) : 0;
+      return r;
+    });
+    return inp;
+  }
+
+  // ---------- Formatting ----------
+  var fmt0 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+  var fmt1 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+  var fmt2 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+  function unitLabel(sel) { return sel.options[sel.selectedIndex].text; }
+  function dimOut(mm, du) { var v = mm / du; return v >= 100 ? fmt0.format(v) : fmt1.format(v); }
+
+  // ---------- Render UI ----------
+  function render() {
+    var inp = compute();
+    var duTxt = unitLabel($('du')), wuTxt = unitLabel($('wu'));
+    var wu = inp.wu;
+    var unit = inp.unit;
+
+    // tabs
+    var tabs = $('tabs'); tabs.innerHTML = '';
+    results.forEach(function (r) {
+      var b = document.createElement('button');
+      b.className = 'tab'; b.setAttribute('role', 'tab'); b.textContent = r.c.name;
+      b.setAttribute('aria-selected', r.c.id === selected ? 'true' : 'false');
+      b.addEventListener('click', function () { select(r.c.id); });
+      tabs.appendChild(b);
+    });
+
+    // best suggestion: fewest containers, then smallest
+    var best = null;
+    results.forEach(function (r) {
+      if (r.n < 1 || inp.qty < 1) return;
+      if (!best || r.need < best.need || (r.need === best.need && r.c.l * r.c.w * r.c.h < best.c.l * best.c.w * best.c.h)) best = r;
+    });
+
+    // table
+    var tb = $('tbl').querySelector('tbody'); tb.innerHTML = '';
+    $('needTh').textContent = 'For ' + fmt0.format(inp.qty) + ' ' + plural(unit, inp.qty);
+    results.forEach(function (r) {
+      var tr = document.createElement('tr');
+      tr.className = 'r'; tr.tabIndex = 0;
+      tr.setAttribute('aria-selected', r.c.id === selected ? 'true' : 'false');
+      var limTxt = r.n === 0 ? '<span class="lim-n">Too large</span>' :
+        r.limit === 'weight' ? '<span class="lim-w">Weight</span>' : '<span class="lim-v">Volume</span>';
+      var need = r.n === 0 ? '–' : (fmt0.format(r.need) + ' &times; ' + r.c.name) + (best === r ? ' <span class="tag">Suggested</span>' : '');
+      tr.innerHTML =
+        '<td><div class="nm">' + r.c.name + '<small>' + r.c.desc + '</small></div></td>' +
+        '<td class="m">' + dimOut(r.c.l, inp.du) + ' × ' + dimOut(r.c.w, inp.du) + ' × ' + dimOut(r.c.h, inp.du) + ' ' + duTxt + '</td>' +
+        '<td class="m">' + fmt0.format(r.c.pay / wu) + ' ' + wuTxt + '</td>' +
+        '<td class="m"><b>' + fmt0.format(r.n) + '</b> ' + plural(unit, r.n) + '</td>' +
+        '<td class="m"><span class="bar"><b style="width:' + Math.min(100, r.vUsed * 100) + '%"></b></span>' + fmt1.format(r.vUsed * 100) + '%</td>' +
+        '<td class="m"><span class="bar"><b style="width:' + Math.min(100, r.wUsed * 100) + '%"></b></span>' + fmt1.format(r.wUsed * 100) + '%</td>' +
+        '<td>' + limTxt + '</td>' +
+        '<td class="m">' + need + '</td>';
+      tr.addEventListener('click', function () { select(r.c.id); });
+      tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(r.c.id); } });
+      tb.appendChild(tr);
+    });
+
+    renderHead(inp);
+    buildScene(inp);
+  }
+
+  function cur() { return results.filter(function (r) { return r.c.id === selected; })[0] || results[0]; }
+
+  function renderHead(inp) {
+    var r = cur(), c = r.c;
+    var cbmTotal = c.l * c.w * c.h / 1e9;
+    var cbmUsed = r.n * inp.box.l * inp.box.w * inp.box.h / 1e9;
+    var ft3 = cbmTotal * 35.3147;
+    var limit = r.n === 0 ? 'Unit does not fit' : r.limit === 'weight' ? 'Weight limit reached' : 'Space limit reached';
+    $('head').innerHTML =
+      '<div class="stat"><span class="k">' + escapeHtml(inp.cargo) + ' &middot; ' + c.name + '</span>' +
+      '<div class="big">' + fmt0.format(r.n) + '<small>' + plural(inp.unit, r.n) + '</small></div></div>' +
+      '<div class="stat"><span class="k">Volume</span><span class="v">' + fmt2.format(cbmUsed) + ' / ' + fmt2.format(cbmTotal) + ' m³</span></div>' +
+      '<div class="stat"><span class="k">Capacity</span><span class="v">' + fmt1.format(ft3) + ' ft³</span></div>' +
+      '<div class="stat"><span class="k">Cargo weight</span><span class="v">' + fmt0.format(r.n * inp.kg / inp.wu) + ' / ' + fmt0.format(c.pay / inp.wu) + ' ' + unitLabel($('wu')) + '</span></div>' +
+      '<div class="stat"><span class="k">Result</span><span class="v">' + limit + '</span></div>';
+  }
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
+
+  function select(id) {
+    selected = id;
+    document.querySelectorAll('.tab').forEach(function (t, i) { t.setAttribute('aria-selected', CONTAINERS[i].id === id ? 'true' : 'false'); });
+    document.querySelectorAll('tr.r').forEach(function (t, i) { t.setAttribute('aria-selected', CONTAINERS[i].id === id ? 'true' : 'false'); });
+    var inp = readInputs();
+    renderHead(inp);
+    buildScene(inp);
+  }
+
+  // ---------- 3D scene ----------
+  var stage = $('stage'), cv = $('cv');
+  var renderer, scene, camera, group, mesh = null, dirty = true;
+  var view = { theta: -0.7, phi: 1.08, r: 22, tx: 0, ty: 0, tz: 0 };
+  var defaultView = null;
+
+  function cssColor(name) { return new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888'); }
+
+  function initThree() {
+    if (typeof THREE === 'undefined') { stage.insertAdjacentHTML('beforeend', '<div style="padding:20px;color:var(--muted)">3D view could not load. The table below still works.</div>'); return false; }
+    renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+    var d = new THREE.DirectionalLight(0xffffff, 0.75); d.position.set(6, 12, 8); scene.add(d);
+    var d2 = new THREE.DirectionalLight(0xffffff, 0.25); d2.position.set(-8, 4, -6); scene.add(d2);
+    group = new THREE.Group(); scene.add(group);
+    new ResizeObserver(resize).observe(stage);
+    resize();
+    attachControls();
+    loop();
+    return true;
+  }
+  function resize() {
+    if (!renderer) return;
+    var w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix(); dirty = true;
+  }
+  function clearGroup() {
+    while (group.children.length) {
+      var o = group.children.pop();
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) { if (o.material.dispose) o.material.dispose(); }
+    }
+    mesh = null;
+  }
+
+  function buildScene(inp) {
+    if (!renderer) return;
+    clearGroup();
+    var r = cur(), c = r.c, S = 0.001;
+    var L = c.l * S, W = c.w * S, H = c.h * S;
+
+    // container shell: edges + floor + door frame
+    var box = new THREE.BoxGeometry(L, H, W);
+    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: cssColor('--scene-line') }));
+    edges.position.set(0, 0, 0); group.add(edges);
+    var floor = new THREE.Mesh(new THREE.PlaneGeometry(L, W), new THREE.MeshBasicMaterial({ color: cssColor('--scene-floor'), side: THREE.DoubleSide }));
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -H / 2 - 0.002; group.add(floor);
+    var dpts = [
+      new THREE.Vector3(L / 2, -H / 2, -W / 2), new THREE.Vector3(L / 2, H / 2, -W / 2),
+      new THREE.Vector3(L / 2, H / 2, W / 2), new THREE.Vector3(L / 2, -H / 2, W / 2), new THREE.Vector3(L / 2, -H / 2, -W / 2)
+    ];
+    var door = new THREE.Line(new THREE.BufferGeometry().setFromPoints(dpts), new THREE.LineBasicMaterial({ color: cssColor('--accent') }));
+    group.add(door);
+
+    // cargo
+    var n = r.place.length;
+    if (n > 0) {
+      var geo = new THREE.BoxGeometry(1, 1, 1);
+      var mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      mesh = new THREE.InstancedMesh(geo, mat, n);
+      var pal = ['--b1','--b2','--b3','--b4','--b5','--b6'].map(cssColor);
+      var m = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3();
+      var gap = 0.985, used = {};
+      for (var i = 0; i < n; i++) {
+        var p = r.place[i];
+        pos.set((p[0] + p[3] / 2) * S - L / 2, (p[1] + p[4] / 2) * S - H / 2, (p[2] + p[5] / 2) * S - W / 2);
+        sc.set(p[3] * S * gap, p[4] * S * gap, p[5] * S * gap);
+        m.compose(pos, q, sc); mesh.setMatrixAt(i, m);
+        mesh.setColorAt(i, pal[p[6] % pal.length]);
+        used[p[6]] = p;
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.userData.total = n;
+      group.add(mesh);
+      applyLoad();
+      // legend
+      var lg = Object.keys(used).map(function (k) {
+        var p = used[k]; var col = getComputedStyle(document.documentElement).getPropertyValue('--b' + ((+k % 6) + 1)).trim();
+        return '<span><i style="background:' + col + '"></i>' + fmt1.format(p[3] / inp.du) + ' × ' + fmt1.format(p[5] / inp.du) + ' × ' + fmt1.format(p[4] / inp.du) + ' ' + unitLabel($('du')) + '</span>';
+      });
+      $('legend').innerHTML = lg.length > 1 ? lg.join('') : '';
+    } else { $('legend').innerHTML = ''; }
+
+    // frame the container
+    var span = Math.max(L, W + 2, H + 2);
+    view.r = span * 1.55;
+    defaultView = { theta: -0.7, phi: 1.08, r: view.r };
+    dirty = true;
+  }
+  function applyLoad() {
+    if (!mesh) return;
+    var pct = +$('load').value;
+    mesh.count = Math.round(mesh.userData.total * pct / 100);
+    $('loadOut').textContent = pct + '%';
+    dirty = true;
+  }
+
+  function attachControls() {
+    var ptrs = {}, lastD = 0;
+    stage.addEventListener('pointerdown', function (e) { stage.setPointerCapture(e.pointerId); ptrs[e.pointerId] = [e.clientX, e.clientY]; lastD = 0; });
+    stage.addEventListener('pointerup', function (e) { delete ptrs[e.pointerId]; });
+    stage.addEventListener('pointercancel', function (e) { delete ptrs[e.pointerId]; });
+    stage.addEventListener('pointermove', function (e) {
+      if (!ptrs[e.pointerId]) return;
+      var ids = Object.keys(ptrs);
+      if (ids.length === 1) {
+        view.theta -= (e.clientX - ptrs[e.pointerId][0]) * 0.008;
+        view.phi = Math.max(0.15, Math.min(1.55, view.phi - (e.clientY - ptrs[e.pointerId][1]) * 0.008));
+        ptrs[e.pointerId] = [e.clientX, e.clientY];
+      } else if (ids.length === 2) {
+        ptrs[e.pointerId] = [e.clientX, e.clientY];
+        var a = ptrs[ids[0]], b = ptrs[ids[1]];
+        var d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        if (lastD) view.r = Math.max(4, Math.min(80, view.r * lastD / d));
+        lastD = d;
+      }
+      dirty = true;
+    });
+    stage.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      view.r = Math.max(4, Math.min(80, view.r * (1 + e.deltaY * 0.001)));
+      dirty = true;
+    }, { passive: false });
+    $('resetView').addEventListener('click', function () {
+      if (defaultView) { view.theta = defaultView.theta; view.phi = defaultView.phi; view.r = defaultView.r; dirty = true; }
+    });
+  }
+  function loop() {
+    requestAnimationFrame(loop);
+    if (!dirty) return;
+    dirty = false;
+    camera.position.set(
+      view.r * Math.sin(view.phi) * Math.sin(view.theta),
+      view.r * Math.cos(view.phi),
+      view.r * Math.sin(view.phi) * Math.cos(view.theta)
+    );
+    camera.lookAt(0, 0, 0);
+    renderer.render(scene, camera);
+  }
+
+  // ---------- Wiring ----------
+  var tmr;
+  function schedule() { clearTimeout(tmr); tmr = setTimeout(render, 120); }
+  ['cargoName','unitName','dl','dw','dh','du','wt','wu','qty','layers'].forEach(function (id) {
+    $(id).addEventListener('input', schedule); $(id).addEventListener('change', schedule);
+  });
+  document.querySelectorAll('input[name="rot"]').forEach(function (el) {
+    el.addEventListener('change', function () { $('layers').disabled = el.value === 'any' && el.checked; schedule(); });
+  });
+  $('load').addEventListener('input', applyLoad);
+  document.querySelectorAll('.chip').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var p = PRESETS[b.getAttribute('data-p')];
+      $('cargoName').value = p.name; $('unitName').value = p.unit;
+      $('dl').value = p.l; $('dw').value = p.w; $('dh').value = p.h; $('du').value = String(p.du);
+      $('wt').value = p.wt; $('wu').value = String(p.wu); $('qty').value = p.qty;
+      document.querySelector('input[name="rot"][value="' + p.rot + '"]').checked = true;
+      $('layers').disabled = false; $('layers').value = 0;
+      render();
+    });
+  });
+  function rethemeScene() { if (renderer) buildScene(readInputs()); }
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', rethemeScene);
+  }
+  new MutationObserver(rethemeScene).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  initThree();
+  render();
+})();
+</script>
